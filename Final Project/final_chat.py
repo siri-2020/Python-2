@@ -1,9 +1,10 @@
 import pygame
 import sys
 import datetime
-import os
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from enum import Enum
+
 
 # Initialize Pygame
 pygame.init()
@@ -25,13 +26,14 @@ GREEN = (52, 168, 83)
 RED = (234, 67, 53)
 YELLOW = (251, 188, 5)
 
-# Game States
-STATE_MENU = 0
-STATE_ADD_DISHES = 1
-STATE_ADD_PEOPLE = 2
-STATE_ASSIGN_ORDERS = 3
-STATE_RESULTS = 4
-STATE_FILE_SAVED = 5
+
+class GameState(Enum):
+    MENU = 0
+    ADD_DISHES = 1
+    ADD_PEOPLE = 2
+    ASSIGN_ORDERS = 3
+    RESULTS = 4
+
 
 def safe_draw(func):
     def wrapper(self, *args, **kwargs):
@@ -40,6 +42,7 @@ def safe_draw(func):
         except Exception as e:
             print(f"Drawing error in {func.__name__}: {e}")
     return wrapper
+
 
 class UIComponent(ABC):
     def __init__(self, x: int, y: int, width: int, height: int):
@@ -53,6 +56,7 @@ class UIComponent(ABC):
     @abstractmethod
     def handle_event(self, event: pygame.event.Event) -> bool:
         pass
+
 
 class Button(UIComponent):
     def __init__(self, x, y, w, h, text, color=BLUE, text_color=WHITE):
@@ -81,6 +85,7 @@ class Button(UIComponent):
             if self.rect.collidepoint(event.pos):
                 return True
         return False
+
 
 class InputBox(UIComponent):
     def __init__(self, x, y, w, h, placeholder="", numeric_only=False):
@@ -127,6 +132,7 @@ class InputBox(UIComponent):
                         self.text += char
         return False
 
+
 @contextmanager
 def rendering_context(surface: pygame.Surface, color=WHITE):
     try:
@@ -136,6 +142,7 @@ def rendering_context(surface: pygame.Surface, color=WHITE):
     except Exception as e:
         print(f"Rendering error: {e}")
         raise
+
 
 class MenuItem(ABC):
     def __init__(self, name, price):
@@ -154,10 +161,11 @@ class MenuItem(ABC):
     def get_info(self):
         pass
 
+
 class Dish(MenuItem):
     def __init__(self, name, price):
         super().__init__(name, price)
-        self._eaters = []
+        self._eaters: List[str] = []
 
     @property
     def eaters(self):
@@ -175,8 +183,9 @@ class Dish(MenuItem):
     def get_info(self):
         return f"{self.name}: THB {self.price:.2f}"
 
+
 class Person:
-    def __init__(self, name: str):
+    def __init__(self, name):
         self._name = name.strip()
         self._total = 0.0
 
@@ -191,9 +200,11 @@ class Person:
     def add_to_total(self, amount):
         self._total += amount
 
+
 def dish_iterator(dishes):
     for dish in dishes.values():
         yield dish
+
 
 class BillSplitterApp:
     def __init__(self):
@@ -213,9 +224,8 @@ class BillSplitterApp:
         self.people = {}
         self.current_person_index = 0
         self.selected_dishes = []
-        self.saved_filename = None
 
-        self.state = STATE_MENU
+        self.state = GameState.MENU
         self.scroll_offset = 0
 
         self.setup_ui()
@@ -233,27 +243,28 @@ class BillSplitterApp:
         self.calculate_button = Button(300, 600, 300, 60, "Calculate Bills", GREEN)
         self.restart_button = Button(300, 600, 300, 60, "Start Over", BLUE)
 
+    ### Print ###
     def save_results_to_file(self):
-        """Save bill summary with timestamp and return filename."""
-        try:
-            now = datetime.datetime.now()
-            timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
-            filename = f"bill_{timestamp}.txt"
+    """Save bill summary with timestamp in unique file."""
+    try:
+        now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"bill_{now}.txt"
 
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write("===== Bill Summary =====\n")
-                f.write(f"Created: {timestamp}\n\n")
-                for person in self.people.values():
-                    f.write(f"{person.name}: THB {person.total:.2f}\n")
-                total_bill = sum(dish.price for dish in self.dishes.values())
-                f.write(f"\nTotal Bill: THB {total_bill:.2f}\n")
-                f.write("=========================\n\n")
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("===== Bill Summary =====\n")
+            f.write(f"Generated at: {now}\n\n")
 
-            print(f"Bill saved to {filename}")
-            return filename
-        except Exception as e:
-            print(f"Error saving bill: {e}")
-            return None
+            for person in self.people.values():
+                f.write(f"{person.name}: THB {person.total:.2f}\n")
+
+            total_bill = sum(dish.price for dish in self.dishes.values())
+            f.write(f"\nTotal Bill: THB {total_bill:.2f}\n")
+            f.write("=========================\n\n")
+
+        print(f"Bill saved to {filename}")
+
+    except Exception as e:
+        print(f"Error saving bill: {e}")
 
     @safe_draw
     def draw_menu_screen(self):
@@ -267,7 +278,12 @@ class BillSplitterApp:
 
         self.start_button.draw(self.screen)
 
-        instructions = ["1. Add dishes", "2. Add people", "3. Map Name and Dish", "4. Get results!"]
+        instructions = [
+            "1. Add dishes",
+            "2. Add people",
+            "3. Assign who ate what",
+            "4. Get results!"
+        ]
         y = 400
         for t in instructions:
             text = self.normal_font.render(t, True, BLACK)
@@ -331,19 +347,22 @@ class BillSplitterApp:
 
         people_list = list(self.people.values())
         if self.current_person_index >= len(people_list):
+            self.state = GameState.RESULTS
             self.calculate_bills()
-            self.state = STATE_FILE_SAVED
-            self.saved_filename = self.save_results_to_file()
+
+            ### ADDED ###
+            self.save_results_to_file()
+
             return
 
         current_person = people_list[self.current_person_index]
 
-        header = self.header_font.render(
-            f"Map Name and Dish for {current_person.name}", True, BLUE)
+        header = self.header_font.render(f"What did {current_person.name} eat?", True, BLUE)
         self.screen.blit(header, (50, 50))
 
         y = 170
         self.dish_rects = {}
+
         for dish in list(self.dishes.values()):
             rect = pygame.Rect(50, y, 800, 40)
             self.dish_rects[dish.name] = rect
@@ -354,35 +373,18 @@ class BillSplitterApp:
             pygame.draw.rect(self.screen, color, rect, border_radius=5)
             pygame.draw.rect(self.screen, DARK_GRAY, rect, 2, border_radius=5)
 
-            check = "(selected) " if is_selected else "  "
-            text = self.normal_font.render(check + dish.get_info(), True, BLACK)
+            text = self.normal_font.render(
+                ("✓ " if is_selected else "  ") + dish.get_info(), True, BLACK
+            )
             self.screen.blit(text, (60, y + 5))
+
             y += 50
 
-        is_last = (self.current_person_index >= len(self.people) - 1)
-        self.next_button.text = "Finish" if is_last else "Next Person"
+        self.next_button.text = (
+            "Next Person" if self.current_person_index < len(self.people) - 1 else "Finish"
+        )
         self.next_button.draw(self.screen)
         self.back_button.draw(self.screen)
-
-    @safe_draw
-    def draw_file_saved_screen(self, filename):
-        header = self.header_font.render("The result file has been created!", True, GREEN)
-        self.screen.blit(header, (50, 50))
-
-        if filename:
-            try:
-                path = os.path.abspath(filename)
-                info_text = f"File: {filename}"
-                path_text = f"Address: {path}"
-                info_surface = self.normal_font.render(info_text, True, BLACK)
-                path_surface = self.small_font.render(path_text, True, DARK_GRAY)
-                self.screen.blit(info_surface, (50, 150))
-                self.screen.blit(path_surface, (50, 200))
-            except Exception as e:
-                error_txt = self.normal_font.render(f"Error showing path: {e}", True, RED)
-                self.screen.blit(error_txt, (50, 150))
-
-        self.restart_button.draw(self.screen)
 
     @safe_draw
     def draw_results_screen(self):
@@ -390,13 +392,17 @@ class BillSplitterApp:
         self.screen.blit(header, (50, 30))
 
         y = 100
+
         for person in self.people.values():
-            txt = self.normal_font.render(f"{person.name}: THB {person.total:.2f}", True, BLACK)
+            txt = self.normal_font.render(
+                f"{person.name}: THB {person.total:.2f}", True, BLACK
+            )
             self.screen.blit(txt, (50, y))
             y += 45
 
         total_bill = sum(dish.price for dish in self.dishes.values())
         y += 20
+
         pygame.draw.line(self.screen, DARK_GRAY, (50, y), (WINDOW_WIDTH - 50, y), 2)
         y += 30
 
@@ -412,15 +418,21 @@ class BillSplitterApp:
     def add_dish(self):
         name = self.dish_name_input.text.strip()
         price_str = self.dish_price_input.text.strip()
+
         if not name or not price_str:
             return
+
         if name in self.dishes:
             return
+
         try:
             price = float(price_str)
         except:
             return
-        self.dishes[name] = Dish(name, price)
+
+        dish = Dish(name, price)
+        self.dishes[name] = dish
+
         self.dish_name_input.text = ""
         self.dish_price_input.text = ""
 
@@ -428,12 +440,14 @@ class BillSplitterApp:
         name = self.person_name_input.text.strip()
         if not name or name in self.people:
             return
+
         self.people[name] = Person(name)
         self.person_name_input.text = ""
 
     def calculate_bills(self):
         for person in self.people.values():
             person._total = 0.0
+
         for dish in dish_iterator(self.dishes):
             shared = dish.get_shared_price()
             for eater in dish.eaters:
@@ -445,32 +459,39 @@ class BillSplitterApp:
             if event.type == pygame.QUIT:
                 self.running = False
 
-            if self.state == STATE_MENU:
+            if self.state == GameState.MENU:
                 if self.start_button.handle_event(event):
-                    self.state = STATE_ADD_DISHES
+                    self.state = GameState.ADD_DISHES
 
-            elif self.state == STATE_ADD_DISHES:
+            elif self.state == GameState.ADD_DISHES:
                 self.dish_name_input.handle_event(event)
                 self.dish_price_input.handle_event(event)
+
                 if self.add_dish_button.handle_event(event):
                     self.add_dish()
-                if self.next_button.handle_event(event) and self.dishes:
-                    self.state = STATE_ADD_PEOPLE
-                if self.back_button.handle_event(event):
-                    self.state = STATE_MENU
 
-            elif self.state == STATE_ADD_PEOPLE:
+                if self.next_button.handle_event(event):
+                    if self.dishes:
+                        self.state = GameState.ADD_PEOPLE
+
+                if self.back_button.handle_event(event):
+                    self.state = GameState.MENU
+
+            elif self.state == GameState.ADD_PEOPLE:
                 self.person_name_input.handle_event(event)
+
                 if self.add_person_button.handle_event(event):
                     self.add_person()
+
                 if self.next_button.handle_event(event) and self.people:
-                    self.state = STATE_ASSIGN_ORDERS
+                    self.state = GameState.ASSIGN_ORDERS
                     self.current_person_index = 0
                     self.selected_dishes = []
-                if self.back_button.handle_event(event):
-                    self.state = STATE_ADD_DISHES
 
-            elif self.state == STATE_ASSIGN_ORDERS:
+                if self.back_button.handle_event(event):
+                    self.state = GameState.ADD_DISHES
+
+            elif self.state == GameState.ASSIGN_ORDERS:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     for dname, rect in self.dish_rects.items():
                         if rect.collidepoint(event.pos):
@@ -481,6 +502,7 @@ class BillSplitterApp:
 
                 if self.next_button.handle_event(event):
                     people_list = list(self.people.values())
+
                     if self.current_person_index < len(people_list):
                         person = people_list[self.current_person_index]
                         for d in self.selected_dishes:
@@ -490,30 +512,32 @@ class BillSplitterApp:
                     self.selected_dishes = []
 
                     if self.current_person_index >= len(people_list):
+                        self.state = GameState.RESULTS
                         self.calculate_bills()
-                        self.state = STATE_FILE_SAVED
-                        self.saved_filename = self.save_results_to_file()
+                        self.save_results_to_file()  ### ADDED
 
                 if self.back_button.handle_event(event):
-                    self.state = STATE_ADD_PEOPLE
+                    if self.current_person_index > 0:
+                        self.current_person_index -= 1
+                        self.selected_dishes = []
+                    else:
+                        self.state = GameState.ADD_PEOPLE
 
-            elif self.state in [STATE_RESULTS, STATE_FILE_SAVED]:
+            elif self.state == GameState.RESULTS:
                 if self.restart_button.handle_event(event):
                     self.__init__()
 
     def draw(self):
         with rendering_context(self.screen):
-            if self.state == STATE_MENU:
+            if self.state == GameState.MENU:
                 self.draw_menu_screen()
-            elif self.state == STATE_ADD_DISHES:
+            elif self.state == GameState.ADD_DISHES:
                 self.draw_add_dishes_screen()
-            elif self.state == STATE_ADD_PEOPLE:
+            elif self.state == GameState.ADD_PEOPLE:
                 self.draw_add_people_screen()
-            elif self.state == STATE_ASSIGN_ORDERS:
+            elif self.state == GameState.ASSIGN_ORDERS:
                 self.draw_assign_orders_screen()
-            elif self.state == STATE_FILE_SAVED:
-                self.draw_file_saved_screen(self.saved_filename)
-            elif self.state == STATE_RESULTS:
+            elif self.state == GameState.RESULTS:
                 self.draw_results_screen()
 
     def run(self):
@@ -521,9 +545,14 @@ class BillSplitterApp:
             self.handle_events()
             self.draw()
             self.clock.tick(FPS)
+        pygame.quit()
+        sys.exit()
 
-if __name__ == "__main__":
+
+def main():
     app = BillSplitterApp()
     app.run()
-    pygame.quit()
-    sys.exit()
+
+
+if __name__ == "__main__":
+    main()
