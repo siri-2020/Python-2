@@ -373,7 +373,10 @@ class BillSplitterApp:
         self.running = True
 
         # Image
-        self.qr_image = pygame.image.load("qr_code.jpg")
+        self.qr_image = pygame.image.load(
+            r"C:\Users\Tanya\OneDrive\Desktop\Python class\py-2\Python-2\Final Project\qr_code.jpg"
+        )
+
         self.qr_image = pygame.transform.scale(self.qr_image, (250, 250))
 
         # Fonts
