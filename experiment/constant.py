@@ -1,0 +1,28 @@
+"""
+Application constants and configuration settings.
+"""
+
+# Window Settings
+WINDOW_WIDTH = 900
+WINDOW_HEIGHT = 700
+FPS = 60
+
+# Colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (200, 200, 200)
+LIGHT_GRAY = (240, 240, 240)
+DARK_GRAY = (100, 100, 100)
+BLUE = (66, 133, 244)
+LIGHT_BLUE = (100, 160, 255)
+GREEN = (52, 168, 83)
+RED = (234, 67, 53)
+YELLOW = (251, 188, 5)
+
+# Application States
+STATE_MENU = 0
+STATE_ADD_DISHES = 1
+STATE_ADD_PEOPLE = 2
+STATE_ASSIGN_ORDERS = 3
+STATE_RESULTS = 4
+STATE_FILE_SAVED = 5
