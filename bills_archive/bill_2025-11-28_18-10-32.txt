@@ -1,9 +1,0 @@
-===== Bill Summary =====
-Created: 2025-11-28_18-10-32
-
-KLK: THB 45.00
-LKL: THB 143.00
-
-Total Bill: 188.00 Baht
-=========================
-

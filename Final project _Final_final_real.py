@@ -7,11 +7,12 @@ fairly among multiple people.
 
 import pygame
 import sys
-import datetime
 import os
+import datetime
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Dict, List, Optional
+
+# =============== User Interface ==================
 
 # Initialize Pygame
 pygame.init()
@@ -206,20 +207,11 @@ class InputBox(UIComponent):
             border_radius=5
         )
 
-        display_text = (
-            self.text if self.text else self.placeholder
-        )
+        display_text = (self.text if self.text else self.placeholder)
         text_color = BLACK if self.text else DARK_GRAY
 
-        text_surface = self.font.render(
-            display_text,
-            True,
-            text_color
-        )
-        surface.blit(
-            text_surface,
-            (self.rect.x + 10, self.rect.y + 10)
-        )
+        text_surface = self.font.render(display_text, True, text_color)
+        surface.blit(text_surface, (self.rect.x + 10, self.rect.y + 10))
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """
@@ -249,17 +241,10 @@ class InputBox(UIComponent):
                         self.text += character
         return False
 
-
 @contextmanager
-def rendering_context(
-    surface: pygame.Surface,
-    background_color: tuple = WHITE
-):
-    """
-    Context manager for safe rendering operations.
-    
-    Handles screen clearing and display updates.
-    """
+def rendering_context(surface: pygame.Surface,
+        background_color: tuple = WHITE):
+    """Context manager for safe rendering operations."""
     try:
         surface.fill(background_color)
         yield surface
@@ -268,7 +253,7 @@ def rendering_context(
         print(f"Rendering error: {error}")
         raise
 
-
+# ================== Models ===================
 class MenuItem(ABC):
     """
     Abstract base class for menu items.
@@ -307,10 +292,10 @@ class Dish(MenuItem):
     def __init__(self, name: str, price: float) -> None:
         """Initialize dish with name and price."""
         super().__init__(name, price)
-        self._eaters: List[str] = []
+        self._eaters: list[str] = []
 
     @property
-    def eaters(self) -> List[str]:
+    def eaters(self) -> list[str]:
         """Get list of people eating this dish."""
         return self._eaters
 
@@ -361,7 +346,7 @@ class Person:
         self._total += amount
 
 
-def dish_iterator(dishes: Dict[str, Dish]):
+def dish_iterator(dishes: dict[str, Dish]):
     """
     Iterator for dishes dictionary.
     
@@ -370,7 +355,7 @@ def dish_iterator(dishes: Dict[str, Dish]):
     for dish in dishes.values():
         yield dish
 
-
+# ================= Bill Calculation =================
 class BillSplitterApp:
     """
     Main application class for bill splitting.
@@ -387,6 +372,10 @@ class BillSplitterApp:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        # Image
+        self.qr_image = pygame.image.load("qr_code.jpg")
+        self.qr_image = pygame.transform.scale(self.qr_image, (250, 250))
+
         # Fonts
         self.title_font = pygame.font.Font(None, 56)
         self.header_font = pygame.font.Font(None, 42)
@@ -394,11 +383,11 @@ class BillSplitterApp:
         self.small_font = pygame.font.Font(None, 24)
 
         # Data
-        self.dishes: Dict[str, Dish] = {}
-        self.people: Dict[str, Person] = {}
+        self.dishes: dict[str, Dish] = {}
+        self.people: dict[str, Person] = {}
         self.current_person_index = 0
-        self.selected_dishes: List[str] = []
-        self.saved_filename: Optional[str] = None
+        self.selected_dishes: list[str] = []
+        self.saved_filename: str = None
 
         self.state = STATE_MENU
         self.scroll_offset = 0
@@ -437,13 +426,16 @@ class BillSplitterApp:
             670, 200, 200, 50, "Add Person", GREEN
         )
         self.save_button = Button(
-            300, 600, 300, 60, "Save to File", GREEN
+            300, 600, 300, 60, "Save Bill Summary to File", GREEN
         )
         self.restart_button = Button(
-            300, 600, 300, 60, "Start Over", BLUE
+            200, 600, 200, 60, "Start Over", BLUE
+        )
+        self.quit_button = Button(
+            500, 600, 200, 60, "Quit", RED
         )
 
-    def save_results_to_file(self) -> Optional[str]:
+    def save_results_to_file(self) -> str:
         """
         Save bill summary to a timestamped file.
         
@@ -470,17 +462,9 @@ class BillSplitterApp:
                         f"{person.name}: "
                         f"THB {person.total:.2f}\n"
                     )
-                total_bill = sum(
-                    dish.price
-                    for dish in self.dishes.values()
-                )
-                file_handle.write(
-                    f"\nTotal Bill: "
-                    f"THB {total_bill:.2f}\n"
-                )
-                file_handle.write(
-                    "=========================\n\n"
-                )
+                total_bill = sum(dish.price for dish in self.dishes.values())
+                file_handle.write(f"\nTotal Bill: {total_bill:.2f} Baht\n")
+                file_handle.write("=========================\n\n")
 
             print(f"Bill saved to {file_path}")
             return file_path
@@ -491,12 +475,10 @@ class BillSplitterApp:
     @safe_draw
     def draw_menu_screen(self) -> None:
         """Draw the main menu screen."""
-        title = self.title_font.render(
-            "Bill Splitter", True, BLUE
-        )
-        title_rect = title.get_rect(
-            center=(WINDOW_WIDTH // 2, 150)
-        )
+        title = self.title_font.render("Bill Splitter",
+            True,
+            BLUE)
+        title_rect = title.get_rect(center=(WINDOW_WIDTH // 2, 150))
         self.screen.blit(title, title_rect)
 
         subtitle = self.normal_font.render(
@@ -504,11 +486,8 @@ class BillSplitterApp:
             True,
             DARK_GRAY
         )
-        subtitle_rect = subtitle.get_rect(
-            center=(WINDOW_WIDTH // 2, 220)
-        )
+        subtitle_rect = subtitle.get_rect(center=(WINDOW_WIDTH // 2, 220))
         self.screen.blit(subtitle, subtitle_rect)
-
         self.start_button.draw(self.screen)
 
         instructions = [
@@ -519,30 +498,24 @@ class BillSplitterApp:
         ]
         vertical_position = 400
         for instruction_text in instructions:
-            text = self.normal_font.render(
-                instruction_text, True, BLACK
-            )
-            rect = text.get_rect(
-                center=(WINDOW_WIDTH // 2, vertical_position)
-            )
+            text = self.normal_font.render(instruction_text,
+                True,
+                BLACK)
+            rect = text.get_rect(center=(WINDOW_WIDTH // 2,
+                                    vertical_position))
             self.screen.blit(text, rect)
             vertical_position += 40
 
     @safe_draw
     def draw_add_dishes_screen(self) -> None:
         """Draw the add dishes screen."""
-        header = self.header_font.render(
-            "Add Dishes", True, BLUE
-        )
+
+        header = self.header_font.render("Add Dishes", True, BLUE)
         self.screen.blit(header, (50, 50))
-
-        instruction = self.small_font.render(
-            "Enter dish name & price",
+        instruction = self.small_font.render("Enter dish name & price",
             True,
-            DARK_GRAY
-        )
+            DARK_GRAY)
         self.screen.blit(instruction, (50, 120))
-
         self.dish_name_input.draw(self.screen)
         self.dish_price_input.draw(self.screen)
         self.add_dish_button.draw(self.screen)
@@ -633,17 +606,11 @@ class BillSplitterApp:
         vertical_position = 170
         self.dish_rects = {}
         for dish in list(self.dishes.values()):
-            dish_rect = pygame.Rect(
-                50, vertical_position, 800, 40
-            )
+            dish_rect = pygame.Rect(50, vertical_position, 800, 40)
             self.dish_rects[dish.name] = dish_rect
 
-            is_selected = (
-                dish.name in self.selected_dishes
-            )
-            rect_color = (
-                LIGHT_BLUE if is_selected else LIGHT_GRAY
-            )
+            is_selected = (dish.name in self.selected_dishes)
+            rect_color = (LIGHT_BLUE if is_selected else LIGHT_GRAY)
 
             pygame.draw.rect(
                 self.screen,
@@ -683,10 +650,7 @@ class BillSplitterApp:
         self.back_button.draw(self.screen)
 
     @safe_draw
-    def draw_file_saved_screen(
-        self,
-        filename: Optional[str]
-    ) -> None:
+    def draw_file_saved_screen(self, filename: str) -> None:
         """Draw the file saved confirmation screen."""
         header = self.header_font.render(
             "The result file has been created!",
@@ -721,6 +685,7 @@ class BillSplitterApp:
                 self.screen.blit(error_text, (50, 150))
 
         self.restart_button.draw(self.screen)
+        self.quit_button.draw(self.screen)
 
     @safe_draw
     def draw_results_screen(self) -> None:
@@ -770,6 +735,13 @@ class BillSplitterApp:
             center=(WINDOW_WIDTH // 2, 530)
         )
         self.screen.blit(thank_you_message, thank_you_rect)
+
+        # === SHOW QR CODE ON RESULT PRICE PAGE ===
+        if hasattr(self, "qr_image") and self.qr_image:
+            qr_rect = self.qr_image.get_rect(
+                center=(WINDOW_WIDTH // 2, 450)
+            )
+            self.screen.blit(self.qr_image, qr_rect)
 
         self.save_button.draw(self.screen)
 
@@ -905,6 +877,8 @@ class BillSplitterApp:
             elif self.state == STATE_FILE_SAVED:
                 if self.restart_button.handle_event(event):
                     self.__init__()
+                elif self.quit_button.handle_event(event):
+                    self.running = False
 
     def draw(self) -> None:
         """Draw the current screen based on state."""
